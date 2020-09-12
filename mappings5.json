@@ -1,0 +1,19 @@
+{
+  "mappings": {
+  "dynamic":"strict",
+    "properties": {
+      "name":       { "type": "text" },
+      "prep_time":  { "type": "text" },  
+      "cook_time":  { "type": "text" }, 
+      "total_time": { "type": "text" },
+      "servings":   { "type": "text" },
+      "ingredients":{
+        "type": "object",
+        "properties": {
+            "item": { "type": "text" }
+        },
+        "dynamic": true
+      }
+    }
+  }
+}
