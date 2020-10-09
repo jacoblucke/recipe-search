@@ -3,6 +3,7 @@ Uses python to webscrape recipe data, and libcurl to POST the data to Elasticsea
 
 Recipe sites currently supported:
 allrecipes.com
+iamafoodblog.com
 
 mappings5.json - json file used to create the Elasticsearch index with the appropriate mappings for how the data is webscraped
 
