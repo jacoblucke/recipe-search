@@ -1,3 +1,14 @@
+# Jacob Lucke, November 2020
+# File: scrape.py 
+# Description: Running this Python script prompts you to enter a mode,
+#			    either m for manual, or a for automatic.
+#			   Manual means you manually input recipe data to be sent to
+#			    Elasticsearch (name, ingredients, time, etc.).
+#			   Automatic means you enter a URL to a recipe website, and
+#			    this script will automatically parse the data and send it
+#				to Elasticsearch.
+# Note: This may or may not be completely jank, I'm just learning by doing.
+
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -12,9 +23,11 @@ import json
 import os
 
 def scrape():
+
 	mode = raw_input("[m]anual or [a]utomatic? ")
 
 	if (mode == "m" or mode == "manual"):
+		# begin Manual input ----------
 		ingredients = []
 		name = raw_input("Enter the title of the recipe: ")
 		preptime = raw_input("Enter the prep time for the recipe: ")
@@ -28,18 +41,25 @@ def scrape():
 			if ingredient.lower() not in {'q', 'quit', 'e', 'exit'}:
 				ingredients.append(ingredient)
 		invalid_input = False
+		# end Manual input ------------
 	elif (mode == "a" or mode == "automatic"):
+		# begin URL input -------------
 		URL = raw_input("Enter the URL to the recipe: ")
 		while (URL.find("https://www.allrecipes.com/recipe/") != 0 and URL.find("https://iamafoodblog.com/") != 0):
 			print("Recipe sites supported:\nallrecipes.com\niamafoodblog.com\nPlease enter a valid recipe URL.\n")
 			URL = raw_input("Enter the URL to the recipe: ")
 		invalid_input = False
-		driver = webdriver.Chrome('/usr/bin/chromedriver')
+		# end URL input ---------------
+		
+		# begin Driver stuff ----------
+		driver = webdriver.Chrome('/usr/bin/chromedriver') # Path to webdriver
 		driver.get(URL)
 		delay = 3
 		html1 = driver.page_source
 		html2 = driver.execute_script("return document.documentElement.innerHTML;")
+		# end Driver stuff ------------
 
+		# begin ALLRECIPES ------------
 		if (URL.find("https://www.allrecipes.com/recipe/") == 0):
 			site = "allrecipes"
 			try:
@@ -50,7 +70,9 @@ def scrape():
 			#first is prep, second is cook, third is additional, fourth is total, fifth is servings, sixth is yield
 			nums = driver.find_elements(By.XPATH, "//div[contains(@class, 'recipe-meta-item-body')]")
 			ingredients = driver.find_elements(By.XPATH, "//span[contains(@class, 'ingredients-item-name')]")
-		
+		# end ALLRECIPES --------------
+
+		# begin IAMAFOODBLOG ----------
 		if (URL.find("https://iamafoodblog.com/") == 0):
 			site = "iamafoodblog"
 			try:
@@ -63,24 +85,27 @@ def scrape():
 			total_time = driver.find_elements(By.XPATH, "//span[contains(@class, 'wprm-recipe-total_time ') or contains(@class, 'wprm-recipe-total_time-unit')]")
 			servings = driver.find_element(By.XPATH, "//input[contains(@class, 'wprm-recipe-servings wprm-recipe-servings-')]").get_attribute("data-original_servings")
 			ingredients = driver.find_elements(By.XPATH, "//li[contains(@class, 'wprm-recipe-ingredient')]")
-	
+		# end IAMAFOODBLOG ------------
 	elif mode.lower() in {'q', 'quit', 'e', 'exit'}:
 		print("Goodbye")
 		return
 	else:
 		print("Invalid input, mode must be:\nm\nmanual\na\nautomatic\n")
 
+	# restart if no mode specified
 	while (invalid_input):
 		scrape()
 
 	file = open("Test.json", "w+")
 
+	# start writing json format
 	file.write("{\n  \"name\": \"")
 	file.write(name)
 
 	file.write("\",\n  \"url\": \"")
 	file.write(URL)
 
+	# begin Prep time -----------------
 	file.write("\",\n  \"prep_time\": \"")
 	if (mode == "a" or mode == "automatic"):
 		if (site == "allrecipes"):
@@ -94,7 +119,9 @@ def scrape():
 				i = i + 1
 	else:
 		file.write(preptime)
+	# end Prep time -------------------
 	
+	# begin Cook time -----------------
 	file.write("\",\n  \"cook_time\": \"")
 	if (mode == "a" or mode == "automatic"):
 		if (site == "allrecipes"):
@@ -108,7 +135,9 @@ def scrape():
 				i = i + 1
 	else:
 		file.write(cooktime)
+	# end Cook time -------------------
 	
+	# begin Total time ----------------
 	file.write("\",\n  \"total_time\": \"")
 	if (mode == "a" or mode == "automatic"):
 		if (site == "allrecipes"):
@@ -122,7 +151,9 @@ def scrape():
 				i = i + 1
 	else:
 		file.write(totaltime)
-	
+	# end Total time ------------------
+
+	# begin Servings ------------------
 	file.write("\",\n  \"servings\": \"")
 	if (mode == "a" or mode == "automatic"):
 		if (site == "allrecipes"):
@@ -131,7 +162,9 @@ def scrape():
 			file.write(servings)
 	else:
 		file.write(servings)
-	
+	# end Servings --------------------
+
+	# begin Ingredients ---------------
 	file.write("\",\n  \"ingredients\":{\n")
 	for i, ingredient in enumerate(ingredients):
 		file.write("    \"")
@@ -144,11 +177,14 @@ def scrape():
 		file.write("\"}")
 		if i != len(ingredients)-1:
 			file.write(",\n")
+	# end Ingredients -----------------
 
+	# end file and clean up
 	file.write("\n  }\n}")
 	file.close()
 	driver.quit()
 
+	# POST to Elasticsearch using libcurl
 	esurl = "http://localhost:9200/recipes4/_doc/" + strftime("%Y%m%d%H%M%S", gmtime())
 	cmd = './esJson POST Test.json ' + esurl
 	os.system(cmd)
