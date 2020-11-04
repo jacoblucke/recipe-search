@@ -138,7 +138,7 @@ def scrape():
 		file.write(str(i+1))
 		file.write("\": { \"item\": \"")
 		if (mode == "a" or mode == "automatic"):
-			file.write(ingredient.text.encode('utf-8'))
+			file.write(ingredient.text.encode('utf-8').replace("\"", "\\\""))
 		else:
 			file.write(ingredient)
 		file.write("\"}")
